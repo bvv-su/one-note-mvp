@@ -1,26 +1,29 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <title>My Note</title>
+  <meta charset="UTF-8" />
+  <title>My note</title>
 </head>
 <body>
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h2>My Note</h2>
+  <h1>My note</h1>
 
-    <form method="post" action="/logout" style="margin:0;">
-      <button type="submit">Logout</button>
-    </form>
-  </div>
-
-  {% if msg %}
-    <p style="color:green">{{ msg }}</p>
-  {% endif %}
-
-  <form method="post">
-    <textarea name="content" style="width:100%; height:320px;">{{ content }}</textarea>
-    <br><br>
+  <form method="post" action="/note">
+    <textarea name="content" rows="12" cols="80">{{ content }}</textarea>
+    <br/><br/>
     <button type="submit">Save</button>
+  </form>
+
+  <hr/>
+
+  <!-- Кнопка выгрузки CSV -->
+  <form method="get" action="/export/note.csv">
+    <button type="submit">Download CSV</button>
+  </form>
+
+  <br/>
+
+  <form method="post" action="/logout">
+    <button type="submit">Logout</button>
   </form>
 </body>
 </html>

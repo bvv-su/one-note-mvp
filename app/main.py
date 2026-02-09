@@ -1,88 +1,52 @@
-from app import export
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+import os
+
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.status import HTTP_302_FOUND
+from starlette.templating import Jinja2Templates
 
 from app.db import init_db
-from app.auth import authenticate, login_user, logout_user, get_current_user_id
-from app.notes import get_note_content, save_note_content
+from app.auth import authenticate, login_user
+from app import notes, export
 
 app = FastAPI()
 
-app.include_router(export.router)
-
-app.add_middleware(
-    SessionMiddleware,
-    secret_key="dev-change-me",
-    same_site="lax",
-    https_only=False,
-)
+# Сессии (cookie-based). Секрет лучше хранить в env.
+secret = os.environ.get("SESSION_SECRET", "change-me-in-prod")
+app.add_middleware(SessionMiddleware, secret_key=secret)
 
 templates = Jinja2Templates(directory="app/templates")
 
 
 @app.on_event("startup")
-def startup():
+def on_startup():
     init_db()
 
 
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    user_id = get_current_user_id(request)
-    return RedirectResponse(url="/note" if user_id else "/login", status_code=302)
-
-
-@app.get("/login", response_class=HTMLResponse)
+# --- Auth pages ---
+@app.get("/login")
 def login_get(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse("login.html", {"request": request, "error": ""})
 
 
-@app.post("/login", response_class=HTMLResponse)
+@app.post("/login")
 def login_post(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
 ):
-    user_id = authenticate(username=username, password=password)
-    if user_id is None:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
+    user = authenticate(username, password)
+    if not user:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request": request, "error": "Invalid credentials"},
+        )
 
-    login_user(request, user_id)
-    return RedirectResponse(url="/note", status_code=302)
-
-
-@app.post("/logout")
-def logout_post(request: Request):
-    logout_user(request)
-    return RedirectResponse(url="/login", status_code=302)
+    login_user(request, user["id"])
+    return RedirectResponse("/note", status_code=HTTP_302_FOUND)
 
 
-@app.get("/note", response_class=HTMLResponse)
-def note_get(request: Request):
-    user_id = get_current_user_id(request)
-    if user_id is None:
-        return RedirectResponse(url="/login", status_code=302)
-
-    content = get_note_content(user_id)
-    return templates.TemplateResponse(
-        "note.html",
-        {"request": request, "content": content, "msg": None},
-    )
-
-
-@app.post("/note", response_class=HTMLResponse)
-def note_post(
-    request: Request,
-    content: str = Form(""),
-):
-    user_id = get_current_user_id(request)
-    if user_id is None:
-        return RedirectResponse(url="/login", status_code=302)
-
-    save_note_content(user_id, content)
-    # отображаем сохранённый текст + сообщение
-    return templates.TemplateResponse(
-        "note.html",
-        {"request": request, "content": content, "msg": "Saved"},
-    )
+# --- Feature routers ---
+app.include_router(notes.router)
+app.include_router(export.router)
