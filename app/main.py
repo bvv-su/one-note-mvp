@@ -1,3 +1,4 @@
+from app import export
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -8,6 +9,8 @@ from app.auth import authenticate, login_user, logout_user, get_current_user_id
 from app.notes import get_note_content, save_note_content
 
 app = FastAPI()
+
+app.include_router(export.router)
 
 app.add_middleware(
     SessionMiddleware,
